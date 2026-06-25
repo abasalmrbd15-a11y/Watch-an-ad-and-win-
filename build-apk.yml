@@ -1,0 +1,61 @@
+name: Build Android APK
+on:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: Extract Project ZIP
+        run: |
+          sudo apt-get install -y unzip
+          unzip build-watch-to-earn-app.zip -d project_extracted
+          cp -r project_extracted/* . || true
+          cp -r project_extracted/.* . || true
+
+      - name: Install Dependencies
+        run: pnpm install
+
+      - name: Build Next.js Static HTML
+        run: pnpm run build
+        env:
+          NEXT_OUTPUT: export
+
+      - name: Setup Capacitor
+        run: |
+          pnpm add @capacitor/core @capacitor/cli @capacitor/android
+          npx cap init "Watch an ad and win" "com.watchtoearn.app" --web-dir=out
+          npx cap add android
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Build APK via Gradle
+        run: |
+          cd android
+          ./gradlew assembleDebug
+
+      - name: Upload Finished APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: WatchAnAdAndWin-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
